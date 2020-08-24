@@ -1,0 +1,282 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>H5左右滑屏切页原理</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+      }
+      ul {
+        list-style-type: none;
+      }
+      .flex-sty {
+        display: -webkit-flex;
+        display: flex;
+        -webkit-align-items: center;
+        align-items: center;
+      }
+      .gifts-gift {
+        width: 100%;
+        height: 203px;
+
+        margin-top: 50%;
+      }
+      .gifts-scoll-con {
+        width: 100%;
+        height: 188px;
+        overflow: hidden;
+        white-space: nowrap;
+        overflow-y: hidden;
+        /*     overflow-x: scroll; */
+        /*     -webkit-overflow-scrolling:touch; */
+      }
+
+      .slide-content,
+      .slide-item {
+        height: 100%;
+      }
+      .slide-content {
+        width: 400%;
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-transform: translate3d(0, 0, 0);
+        transform: translate3d(0, 0, 0);
+        backface-visibility: hidden;
+        /* position: relative; */
+      }
+
+      .slide-item {
+        -webkit-box-flex: 1;
+        width: 0;
+
+        /* width: 100%;
+        float: left; */
+      }
+      .slide-item:nth-child(1) {
+        background-color: burlywood;
+      }
+      .slide-item:nth-child(2) {
+        background-color: cyan;
+      }
+      .slide-item:nth-child(3) {
+        background-color: darkorange;
+      }
+      .slide-item:nth-child(4) {
+        background-color: darkseagreen;
+      }
+      h3 {
+        text-align: center;
+        font-family: Microsoft YaHei, Arial;
+        color: #333;
+        font-size: 30px;
+        line-height: 180px;
+        font-weight: normal;
+        margin: 0;
+      }
+      .slide-dots {
+        width: 100%;
+        height: 15px;
+        list-style: none;
+        -webkit-justify-content: center;
+        justify-content: center;
+      }
+      .slide-dots > li {
+        width: 7px;
+        height: 7px;
+        padding: 0 5px;
+      }
+      .slide-dots > li button {
+        display: block;
+        width: 100%;
+        height: 100%;
+        color: transparent;
+        font-size: 0;
+        background-color: rgba(229, 230, 230, 1);
+        border: 0;
+        outline: none;
+        cursor: pointer;
+        border-radius: 50%;
+        transition: all 0.5s;
+      }
+      .slick-active > button {
+        background-color: rgba(243, 217, 73, 1) !important;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="gifts-gift">
+      <div class="gifts-scoll-con">
+        <article class="slide-content">
+          <section class="slide-item" data-index="0">
+            <h3>页面-1</h3>
+          </section>
+          <section class="slide-item" data-index="1">
+            <h3>页面-2</h3>
+          </section>
+          <section class="slide-item" data-index="2">
+            <h3>页面-3</h3>
+          </section>
+          <section class="slide-item" data-index="3">
+            <h3>页面-4</h3>
+          </section>
+        </article>
+      </div>
+      <ul class="slide-dots flex-sty">
+        <li class="slick-active"><button>0</button></li>
+        <li class=""><button>1</button></li>
+        <li class=""><button>2</button></li>
+        <li class=""><button>3</button></li>
+      </ul>
+    </main>
+
+    <script>
+      var currentPosition = 0; // 记录当前页面位置
+      var currentPoint = -1; // 记录当前点的位置
+      var pageNow = 1; // 当前页码
+      var points = null; // 页码数
+      document.addEventListener("DOMContentLoaded", function () {
+        //左右滑动页面切页
+        initSwiper();
+      });
+
+      function initSwiper() {
+        points = document.querySelectorAll(".slide-dots>li");
+        bindTouchEvent(); // 绑定触摸事件
+        setPageNow(); // 设置初始页码
+
+        //设置当前页码
+        function setPageNow() {
+          if (currentPoint != -1) {
+            points[currentPoint].className = "";
+          }
+
+          currentPoint = pageNow - 1;
+          points[currentPoint].className = "slick-active";
+        }
+
+        //页面平移
+        function transform(translate) {
+          this.style.webkitTransform = "translate3d(" + translate + "px, 0, 0)";
+          currentPosition = translate;
+        }
+
+        //绑定触摸事件
+        function bindTouchEvent() {
+          var scrollContainer = document.querySelector(".slide-content");
+          var pageWidth = window.screen.width; // 页面宽度
+          var maxWidth = -pageWidth * (points.length - 1); // 页面滑动最后一页的位置
+          var startX, startY;
+          var initialPos = 0; // 上一次移动到的位置
+          var moveLength = 0; // 手指当前滑动的距离
+          var direction = "left"; // 滑动的方向
+          var isMove = false; // 是否发生左右滑动
+          var startT = 0; // 记录手指按下去的时间
+          var isTouchEnd = true; // 标记当前滑动是否结束(手指已离开屏幕)
+
+          // 手指放在屏幕上
+          scrollContainer.addEventListener("touchstart", function (e) {
+            e.preventDefault();
+
+            // 单手指触摸或者多手指同时触摸，禁止第二个手指延迟操作事件
+            if (e.touches.length === 1 || isTouchEnd) {
+              var touch = e.touches[0];
+              startX = touch.pageX;
+              startY = touch.pageY;
+              initialPos = currentPosition; // 本次滑动前的初始位置
+              scrollContainer.style.webkitTransition = ""; // 取消动画效果
+              startT = +new Date(); // 记录手指按下的开始时间
+              isMove = false; // 是否产生滑动
+              isTouchEnd = false; // 当前滑动开始
+            }
+          });
+
+          //手指在屏幕上滑动，页面跟随手指移动
+          scrollContainer.addEventListener("touchmove", function (e) {
+            e.preventDefault();
+
+            // 如果当前滑动已结束，不管其他手指是否在屏幕上都禁止该事件
+            if (isTouchEnd) return;
+
+            var touch = e.touches[0];
+            var deltaX = touch.pageX - startX;
+            var deltaY = touch.pageY - startY;
+
+            var translate = initialPos + deltaX; // 当前需要移动到的位置
+
+            // 如果translate>0 或 < maxWidth,则表示页面超出边界，即滑动范围是[maxWidth, 0]
+            if (translate > 0) {
+              //最左边是0
+              translate = 0;
+            }
+            if (translate < maxWidth) {
+              //最右边是maxWidth，负值
+              translate = maxWidth;
+            }
+            deltaX = translate - initialPos; //滑动到左右边界时，按照滑动范围计算本次水平能滑动的最大距离（超出不算）
+            transform.call(scrollContainer, translate);
+            isMove = true;
+            moveLength = deltaX;
+            direction = deltaX > 0 ? "right" : "left"; // 判断手指滑动的方向
+          });
+
+          //手指离开屏幕时，计算最终需要停留在哪一页
+          scrollContainer.addEventListener("touchend", function (e) {
+            e.preventDefault();
+
+            var translate = 0;
+            var deltaT = +new Date() - startT; // 计算手指在屏幕上停留的时间
+            if (isMove && !isTouchEnd) {
+              // 发生了滑动，并且当前滑动事件未结束
+              isTouchEnd = true; // 标记当前完整的滑动事件已经结束
+              // 使用动画过渡让页面滑动到最终的位置
+              scrollContainer.style.webkitTransition =
+                "0.3s ease -webkit-transform";
+              if (deltaT < 300) {
+                // 如果停留时间小于300ms,则认为是快速滑动，无论滑动距离是多少，都停留到下一页
+                if (currentPosition === 0 && translate === 0) {
+                  //没有滑动页面
+                  return;
+                }
+                //不管滑动多少，最终只滑动一页
+                translate =
+                  direction === "left"
+                    ? currentPosition - (pageWidth + moveLength)
+                    : currentPosition + pageWidth - moveLength;
+
+                // 如果最终位置超过边界位置，则停留在边界位置
+                translate = translate > 0 ? 0 : translate; // 左边界
+                translate = translate < maxWidth ? maxWidth : translate; // 右边界
+              } else {
+                // 如果滑动距离小于屏幕的50%，则退回到上一页
+                if (Math.abs(moveLength) / pageWidth < 0.5) {
+                  //currentPosition为当前滑动到的距离，即之前划过的页码数的距离+本次滑动的距离，而moveLength是本次滑动的距离=》之差就是之前划过的页码数的距离
+                  //若当前为未滑动过，那么初始translateY为0，currentPosition等于moveLength滑动的距离，之差为0及translateY为0不会切换页面
+                  //若滑动到第二页，那么初始translateY为-pageWidth，则在此页码上移动currentPosition为-pageWidth+moveLength（在原有滑动基础上滑动了moveLength），所以之差仍为currentPosition，即不会切换页面
+                  translate = currentPosition - moveLength;
+                } else {
+                  // 如果滑动距离大于屏幕的50%，则滑动到下一页
+                  //currentPosition - moveLength可只是保留上次滑动的距离，那么+pageWidth和-pageWidth就是向右或向左滑动一页
+                  translate =
+                    direction === "left"
+                      ? currentPosition - (pageWidth + moveLength)
+                      : currentPosition + pageWidth - moveLength;
+
+                  translate = translate > 0 ? 0 : translate;
+                  translate = translate < maxWidth ? maxWidth : translate;
+                }
+              }
+              transform.call(scrollContainer, translate); // 执行滑动，让页面完整的显示到屏幕上
+
+              pageNow = Math.round(Math.abs(translate) / pageWidth) + 1; // 计算当前的页码
+              setTimeout(function () {
+                setPageNow(); // 设置页码，DOM操作需要放到异步队列中，否则会出现卡顿
+              }, 100);
+            }
+          });
+        }
+      }
+    </script>
+  </body>
+</html>
